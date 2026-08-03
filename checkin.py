@@ -57,13 +57,18 @@ class NewAPICheckin:
         """
         return '****'
 
-    def __init__(self, base_url: str, session_cookie: str, user_id: str = None, cf_clearance: str = None):
+    def __init__(self, base_url: str, session_cookie: str, user_id: str = None, cf_clearance: str = None, auth_type: str = 'session'):
         self.base_url = base_url.rstrip('/')
         self.session_cookie = session_cookie
         self.original_cf_clearance = cf_clearance
         self.cf_bypassed = False
+        self.auth_type = auth_type  # 'session' (cookie) 或 'bearer' (Authorization 头)
         self.session = requests.Session()
-        self.session.cookies.set('session', session_cookie)
+
+        if self.auth_type == 'bearer':
+            self.session.headers.update({'Authorization': 'Bearer ' + session_cookie})
+        else:
+            self.session.cookies.set('session', session_cookie)
 
         if cf_clearance:
             self.session.cookies.set('cf_clearance', cf_clearance)
@@ -79,7 +84,7 @@ class NewAPICheckin:
         if user_id:
             self.user_id = user_id
             self.session.headers.update({'new-api-user': str(user_id)})
-        else:
+        elif self.auth_type != 'bearer':
             self.user_id = self._extract_user_id_from_session(session_cookie)
             if self.user_id:
                 self.session.headers.update({'new-api-user': str(self.user_id)})
@@ -368,6 +373,9 @@ def parse_accounts(accounts_str: str) -> list:
                     # 如果提供了 cf_clearance，添加到账号信息中
                     if 'cf_clearance' in item:
                         account['cf_clearance'] = item['cf_clearance']
+                    # 如果提供了 auth_type，添加到账号信息中
+                    if 'auth_type' in item:
+                        account['auth_type'] = item['auth_type']
                     accounts.append(account)
             return accounts
     except json.JSONDecodeError:
@@ -562,14 +570,16 @@ def main():
         session_cookie = account['session']
         user_id = account.get('user_id')  # 获取用户ID（如果提供）
         cf_clearance = account.get('cf_clearance')  # 获取 CF clearance（如果提供）
+        auth_type = account.get('auth_type', 'session')  # 认证方式
         name = account.get('name') or f'账号{i}'
 
         print(f'[{i}/{len(accounts)}] {name}')
         print(f'  站点: {NewAPICheckin._mask_url(url)}')
+        print(f'  认证: {auth_type}')
         if user_id:
             print(f'  用户ID: {NewAPICheckin._mask_user_id(user_id)}')
 
-        client = NewAPICheckin(url, session_cookie, user_id, cf_clearance)
+        client = NewAPICheckin(url, session_cookie, user_id, cf_clearance, auth_type)
 
         # 获取用户信息
         user_info = client.get_user_info()
