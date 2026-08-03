@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NewAPI 本地管理</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">N</span>
+        <div>
+          <strong>NewAPI Checkin</strong>
+          <span>本地管理</span>
+        </div>
+      </div>
+
+      <nav class="nav-tabs" aria-label="主导航">
+        <button class="nav-tab is-active" data-tab="accounts" type="button">账号</button>
+        <button class="nav-tab" data-tab="schedule" type="button">定时</button>
+        <button class="nav-tab" data-tab="notify" type="button">通知</button>
+        <button class="nav-tab" data-tab="export" type="button">导出</button>
+        <button class="nav-tab" data-tab="results" type="button">结果</button>
+      </nav>
+
+      <div class="sidebar-meta">
+        <span>配置文件</span>
+        <code id="config-path">local_config.json</code>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>本地签到控制台</h1>
+          <p id="source-label">正在读取配置...</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="save-btn" class="button secondary" type="button">保存配置</button>
+          <button id="run-btn" class="button primary" type="button">立即签到</button>
+        </div>
+      </header>
+
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+
+      <section id="tab-accounts" class="tab-panel is-active">
+        <div class="section-heading">
+          <div>
+            <h2>账号配置</h2>
+            <span id="account-count">0 个账号</span>
+          </div>
+          <div class="inline-actions">
+            <button id="add-account-btn" class="button secondary" type="button">添加账号</button>
+            <button id="toggle-import-btn" class="button ghost" type="button">导入</button>
+          </div>
+        </div>
+
+        <div id="import-panel" class="import-panel" hidden>
+          <label for="import-text">粘贴 JSON 或 URL#SESSION 配置</label>
+          <textarea id="import-text" rows="5" spellcheck="false"></textarea>
+          <div class="inline-actions">
+            <button id="import-btn" class="button secondary" type="button">导入到列表</button>
+            <button id="clear-import-btn" class="button ghost" type="button">清空</button>
+          </div>
+        </div>
+
+        <div id="accounts-list" class="accounts-list"></div>
+      </section>
+
+      <section id="tab-schedule" class="tab-panel">
+        <div class="section-heading">
+          <div>
+            <h2>定时签到</h2>
+            <span id="schedule-summary">未开启</span>
+          </div>
+          <button id="refresh-schedule-btn" class="button ghost" type="button">刷新状态</button>
+        </div>
+        <div class="settings-grid">
+          <label class="checkbox-row">
+            <input id="schedule-enabled" type="checkbox">
+            <span>开启每天自动签到</span>
+          </label>
+          <label>
+            <span>每天执行时间</span>
+            <input id="schedule-time" type="time" value="08:10">
+          </label>
+          <label class="checkbox-row">
+            <input id="schedule-run-missed" type="checkbox">
+            <span>软件启动后补跑今天错过的任务</span>
+          </label>
+        </div>
+        <div class="schedule-status-grid">
+          <div class="status-tile">
+            <span>下次运行</span>
+            <strong id="schedule-next-run">-</strong>
+          </div>
+          <div class="status-tile">
+            <span>上次运行</span>
+            <strong id="schedule-last-run">-</strong>
+          </div>
+          <div class="status-tile">
+            <span>上次结果</span>
+            <strong id="schedule-last-message">-</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-notify" class="tab-panel">
+        <div class="section-heading">
+          <div>
+            <h2>钉钉通知</h2>
+            <span>可选</span>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <label>
+            <span>Webhook</span>
+            <input id="dingtalk-webhook" type="password" autocomplete="off" placeholder="https://oapi.dingtalk.com/robot/send?...">
+          </label>
+          <label>
+            <span>签名密钥</span>
+            <input id="dingtalk-secret" type="password" autocomplete="off" placeholder="SEC...">
+          </label>
+          <label class="checkbox-row">
+            <input id="notify-after-checkin" type="checkbox">
+            <span>签到完成后发送通知</span>
+          </label>
+        </div>
+      </section>
+
+      <section id="tab-export" class="tab-panel">
+        <div class="section-heading">
+          <div>
+            <h2>配置导出</h2>
+            <span>兼容 GitHub Actions</span>
+          </div>
+        </div>
+        <div class="export-grid">
+          <div class="export-block">
+            <div class="export-title">
+              <strong>JSON</strong>
+              <button class="button ghost copy-btn" data-copy="json" type="button">复制</button>
+            </div>
+            <textarea id="export-json" readonly spellcheck="false"></textarea>
+          </div>
+          <div class="export-block">
+            <div class="export-title">
+              <strong>NEWAPI_ACCOUNTS</strong>
+              <button class="button ghost copy-btn" data-copy="simple" type="button">复制</button>
+            </div>
+            <textarea id="export-simple" readonly spellcheck="false"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-results" class="tab-panel">
+        <div class="section-heading">
+          <div>
+            <h2>运行结果</h2>
+            <span id="result-summary">尚未运行</span>
+          </div>
+        </div>
+        <div id="results-list" class="results-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <template id="account-template">
+    <article class="account-card">
+      <div class="account-head">
+        <div>
+          <strong class="account-title"></strong>
+          <span class="account-subtitle"></span>
+        </div>
+        <div class="inline-actions">
+          <button class="button ghost test-account" type="button">测试</button>
+          <button class="icon-button remove-account" type="button" aria-label="删除账号">×</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label>
+          <span>名称</span>
+          <input class="field-name" type="text" autocomplete="off">
+        </label>
+        <label>
+          <span>站点 URL</span>
+          <input class="field-url" type="url" autocomplete="off" placeholder="https://api.example.com">
+        </label>
+        <label class="full">
+          <span>Session Cookie</span>
+          <textarea class="field-session" rows="3" spellcheck="false"></textarea>
+        </label>
+      </div>
+      <details class="advanced">
+        <summary>高级</summary>
+        <div class="form-grid">
+          <label>
+            <span>用户 ID</span>
+            <input class="field-user-id" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>CF Clearance</span>
+            <input class="field-cf" type="password" autocomplete="off">
+          </label>
+        </div>
+      </details>
+      <div class="account-state"></div>
+    </article>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
