@@ -83,11 +83,17 @@ class NewAPICheckin:
 
         if user_id:
             self.user_id = user_id
-            self.session.headers.update({'new-api-user': str(user_id)})
+            self.session.headers.update({
+                'new-api-user': str(user_id),
+                'Api-User': str(user_id),  # 某些站点用 Api-User 头
+            })
         elif self.auth_type != 'bearer':
             self.user_id = self._extract_user_id_from_session(session_cookie)
             if self.user_id:
-                self.session.headers.update({'new-api-user': str(self.user_id)})
+                self.session.headers.update({
+                    'new-api-user': str(self.user_id),
+                    'Api-User': str(self.user_id),
+                })
 
     def _extract_user_id_from_session(self, session_cookie: str) -> Optional[str]:
         """
