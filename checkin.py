@@ -597,7 +597,7 @@ def main():
 
         if result['success']:
             success_count += 1
-            print(f'  结果: ✅ {result["message"]}')
+            print(f'  结果: [成功] {result["message"]}')
 
             # 显示签到日期
             if result['checkin_date']:
@@ -638,9 +638,18 @@ def main():
                 'checkin_count': checkin_count
             }
             checkin_results.append(account_result)
+        elif '已签到' in result.get('message', ''):
+            success_count += 1  # 今日已签到也算成功
+            print(f'  结果: [成功] {result["message"]}')
+            account_result = {
+                'name': name,
+                'success': True,
+                'message': result['message'],
+            }
+            checkin_results.append(account_result)
         else:
             fail_count += 1
-            print(f'  结果: ❌ {result["message"]}')
+            print(f'  结果: [失败] {result["message"]}')
 
             # 收集结果用于钉钉通知
             message = result.get('message', '')
