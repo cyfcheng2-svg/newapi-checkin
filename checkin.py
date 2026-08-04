@@ -22,7 +22,7 @@ except ImportError:
     CloudflareBypasser = None
 
 try:
-    from dingtalk_notifier import send_checkin_notification
+    from feishu_notifier import send_checkin_notification
 except ImportError:
     send_checkin_notification = None
 
@@ -453,14 +453,16 @@ def load_config_from_cloud(config_url: str, config_auth: str = None) -> Optional
             accounts_str = json.dumps(accounts)
             print(f'[云端] 成功加载 {len(accounts)} 个账号配置')
 
-            if data.get('dingtalk'):
-                dt = data['dingtalk']
-                if dt.get('webhook') and not os.environ.get('DINGTALK_WEBHOOK'):
-                    os.environ['DINGTALK_WEBHOOK'] = dt['webhook']
-                if dt.get('secret') and not os.environ.get('DINGTALK_SECRET'):
-                    os.environ['DINGTALK_SECRET'] = dt['secret']
-                if dt.get('webhook'):
-                    print('[云端] 已从云端加载钉钉通知配置')
+            if data.get('feishu'):
+                fs = data['feishu']
+                if fs.get('app_id') and not os.environ.get('FEISHU_APP_ID'):
+                    os.environ['FEISHU_APP_ID'] = fs['app_id']
+                if fs.get('app_secret') and not os.environ.get('FEISHU_APP_SECRET'):
+                    os.environ['FEISHU_APP_SECRET'] = fs['app_secret']
+                if fs.get('chat_id') and not os.environ.get('FEISHU_CHAT_ID'):
+                    os.environ['FEISHU_CHAT_ID'] = fs['chat_id']
+                if fs.get('app_id'):
+                    print('[云端] 已从云端加载飞书通知配置')
 
             return accounts_str
         else:
@@ -512,12 +514,14 @@ def load_config_from_local_file(config_path: str = None) -> Optional[str]:
                 accounts = data
             elif isinstance(data, dict):
                 accounts = data.get('accounts', [])
-                dingtalk = data.get('dingtalk', {})
-                if isinstance(dingtalk, dict):
-                    if dingtalk.get('webhook') and not os.environ.get('DINGTALK_WEBHOOK'):
-                        os.environ['DINGTALK_WEBHOOK'] = dingtalk['webhook']
-                    if dingtalk.get('secret') and not os.environ.get('DINGTALK_SECRET'):
-                        os.environ['DINGTALK_SECRET'] = dingtalk['secret']
+                feishu = data.get('feishu', {})
+                if isinstance(feishu, dict):
+                    if feishu.get('app_id') and not os.environ.get('FEISHU_APP_ID'):
+                        os.environ['FEISHU_APP_ID'] = feishu['app_id']
+                    if feishu.get('app_secret') and not os.environ.get('FEISHU_APP_SECRET'):
+                        os.environ['FEISHU_APP_SECRET'] = feishu['app_secret']
+                    if feishu.get('chat_id') and not os.environ.get('FEISHU_CHAT_ID'):
+                        os.environ['FEISHU_CHAT_ID'] = feishu['chat_id']
             else:
                 accounts = []
 
@@ -635,7 +639,7 @@ def main():
                     total_str = str(total_quota)
                 print(f'  统计: 本月已签 {checkin_count} 天，累计 {total_str} 额度')
 
-            # 收集结果用于钉钉通知
+            # 收集结果用于飞书通知
             account_result = {
                 'name': name,
                 'success': True,
@@ -657,7 +661,7 @@ def main():
             fail_count += 1
             print(f'  结果: [失败] {result["message"]}')
 
-            # 收集结果用于钉钉通知
+            # 收集结果用于飞书通知
             message = result.get('message', '')
             account_result = {
                 'name': name,
@@ -674,12 +678,12 @@ def main():
     print(f'签到完成: 成功 {success_count}, 失败 {fail_count}')
     print('=' * 50)
     
-    # 发送钉钉通知
+    # 发送飞书通知
     if send_checkin_notification:
-        print('正在发送钉钉通知...')
+        print('正在发送飞书通知...')
         send_checkin_notification(checkin_results, execution_time)
-    elif os.environ.get('DINGTALK_WEBHOOK'):
-        print('[警告] 已配置 DINGTALK_WEBHOOK 但无法导入通知模块')
+    elif os.environ.get('FEISHU_APP_ID'):
+        print('[警告] 已配置 FEISHU_APP_ID 但无法导入通知模块')
 
     # 如果全部失败则返回错误码
     if fail_count == len(accounts):
@@ -689,5 +693,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# === DINGTALK NOTIFICATION PATCH ===
-# This section was added to send DingTalk notifications

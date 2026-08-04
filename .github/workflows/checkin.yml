@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 设置 Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -31,6 +31,7 @@ jobs:
           CONFIG_URL: ${{ secrets.CONFIG_URL }}
           CONFIG_AUTH: ${{ secrets.CONFIG_AUTH }}
           NEWAPI_ACCOUNTS: ${{ secrets.NEWAPI_ACCOUNTS }}
-          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
-          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
         run: python checkin.py
