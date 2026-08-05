@@ -657,8 +657,8 @@ def main():
                 'checkin_count': checkin_count
             }
             checkin_results.append(account_result)
-        elif '今天' in result.get('message', '') and ('签到' in result.get('message','') or 'already' in result.get('message','').lower()):
-            success_count += 1  # 今日已签到也视为成功
+        elif '签到' in result.get('message', '') and ('今' in result.get('message', '') or 'already' in result.get('message','').lower() or 'repeat' in result.get('message','').lower()):
+            success_count += 1  # 今日/今天已签到也视为成功
             print(f'  结果: [成功] {result["message"]}')
             account_result = {
                 'name': name,
