@@ -188,12 +188,16 @@ class CloudflareBypasser:
                 except Exception:
                     pass
 
+                user_headers = ""
+                if self.user_id:
+                    user_headers = ", 'Api-User': '" + str(self.user_id) + "', 'new-api-user': '" + str(self.user_id) + "', 'New-Api-User': '" + str(self.user_id) + "'"
+
                 checkin_js = (
                     "async () => {"
                     "  try {"
                     "    const resp = await fetch('" + self.checkin_path + "', {"
                     "        method: 'POST',"
-                    "        headers: {'Content-Type': 'application/json'},"
+                    "        headers: {'Content-Type': 'application/json'" + user_headers + "},"
                     "        credentials: 'include'"
                     "    });"
                     "    const text = await resp.text();"
