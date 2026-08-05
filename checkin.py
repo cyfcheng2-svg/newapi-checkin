@@ -549,7 +549,7 @@ def main():
     execution_time = datetime.now(beijing_tz).strftime("%Y-%m-%d %H:%M:%S")
     print('=' * 50)
     print('NewAPI 自动签到')
-    print(f'执行时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    print(f'执行时间: {datetime.now(beijing_tz).strftime("%Y-%m-%d %H:%M:%S")}')
     print('=' * 50)
 
     config_url = os.environ.get('CONFIG_URL', '')

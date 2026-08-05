@@ -160,14 +160,41 @@ https://api.example1.com#MTc2NzQx...,https://api.example2.com#QVFMXzJh...,https:
     "session": "QVFMXzJhYWJFRUFRQUFEX3dfLUFBQVlHYzNS...",
     "user_id": "456",
     "name": "备用站"
-  },
-  {
-    "url": "https://api3.example.com",
-    "session": "RFhFN0FBQkVBRVFBQUQzd19fQUFBWUdjM1J5...",
-    "user_id": "789",
-    "name": "测试站"
   }
 ]
+```
+
+**JSON 可选字段说明：**
+
+| 字段 | 类型 | 说明 | 默认值 |
+|------|------|------|--------|
+| `url` | string | 站点地址（必填） | — |
+| `session` | string | 会话凭证（必填） | — |
+| `user_id` | string | 用户ID（可选，推荐填） | 自动从 session 提取 |
+| `name` | string | 账号备注名 | `账号N` |
+| `auth_type` | string | 认证方式：`session`（cookie）/ `bearer`（Authorization 头）/ `auth_token`（auth_token cookie） | `session` |
+| `checkin_path` | string | 签到接口路径（如站点签到接口不同） | `/api/user/checkin` |
+| `cf_clearance` | string | Cloudflare cf_clearance cookie（Playwright 自动绕过通常不需要） | 空 |
+
+**示例：Bearer 认证站点：**
+```json
+{
+  "url": "https://api.dzzi.ai",
+  "session": "your_bearer_token_here",
+  "name": "大肘子",
+  "auth_type": "bearer"
+}
+```
+
+**示例：auth_token 认证 + 自定义签到路径：**
+```json
+{
+  "url": "https://free.example.com",
+  "session": "your_jwt_token_here",
+  "name": "站点名",
+  "auth_type": "auth_token",
+  "checkin_path": "/api/user/signin"
+}
 ```
 
 #### 3. 启用 GitHub Actions
