@@ -55,10 +55,12 @@ class CloudflareBypasser:
     (对应 Chrome 扩展在同一标签页中完成所有操作)
     """
 
-    def __init__(self, base_url: str, session_cookie: str = None, user_id: str = None):
+    def __init__(self, base_url: str, session_cookie: str = None, user_id: str = None, cookie_name: str = 'session', checkin_path: str = '/api/user/checkin'):
         self.base_url = base_url.rstrip('/')
         self.session_cookie = session_cookie
         self.user_id = user_id
+        self.cookie_name = cookie_name
+        self.checkin_path = checkin_path or '/api/user/checkin'
         self._playwright_available = self._check_playwright()
 
     def _check_playwright(self) -> bool:
@@ -158,7 +160,7 @@ class CloudflareBypasser:
                 if self.session_cookie:
                     domain = self.base_url.replace('https://', '').replace('http://', '').split('/')[0]
                     context.add_cookies([
-                        {'name': 'session', 'value': self.session_cookie, 'domain': domain, 'path': '/'}
+                        {'name': self.cookie_name, 'value': self.session_cookie, 'domain': domain, 'path': '/'}
                     ])
 
                 page = context.new_page()
@@ -186,35 +188,38 @@ class CloudflareBypasser:
                 except Exception:
                     pass
 
-                checkin_result = page.evaluate('''async () => {
-                    try {
-                        const resp = await fetch('/api/user/checkin', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            credentials: 'include'
-                        });
-                        const text = await resp.text();
-                        try {
-                            const data = JSON.parse(text);
-                            const success = data.success === true || data.status === 'success' || data.ret === 1 || data.code === 0;
-                            const message = data.message || data.msg || data.data || '签到完成';
-                            const msgStr = typeof message === 'string' ? message : JSON.stringify(message);
-                            const alreadyKeywords = ['已签到', '已经签到', 'already', '重复签到'];
-                            const alreadyCheckedIn = !success && alreadyKeywords.some(k => msgStr.includes(k));
-                            return {
-                                success: success || alreadyCheckedIn,
-                                alreadyCheckedIn,
-                                message: msgStr,
-                                httpStatus: resp.status,
-                                data: data
-                            };
-                        } catch(e) {
-                            return { error: 'Response is not JSON: ' + text.substring(0, 200), httpStatus: resp.status, success: false };
-                        }
-                    } catch(e) {
-                        return { error: e.message, success: false, httpStatus: 0 };
-                    }
-                }''')
+                checkin_js = (
+                    "async () => {"
+                    "  try {"
+                    "    const resp = await fetch('" + self.checkin_path + "', {"
+                    "        method: 'POST',"
+                    "        headers: {'Content-Type': 'application/json'},"
+                    "        credentials: 'include'"
+                    "    });"
+                    "    const text = await resp.text();"
+                    "    try {"
+                    "      const data = JSON.parse(text);"
+                    "      const success = data.success === true || data.status === 'success' || data.ret === 1 || data.code === 0;"
+                    "      const message = data.message || data.msg || data.data || '签到完成';"
+                    "      const msgStr = typeof message === 'string' ? message : JSON.stringify(message);"
+                    "      const alreadyKeywords = ['已签到', '已经签到', 'already', '重复签到'];"
+                    "      const alreadyCheckedIn = !success && alreadyKeywords.some(k => msgStr.includes(k));"
+                    "      return {"
+                    "        success: success || alreadyCheckedIn,"
+                    "        alreadyCheckedIn,"
+                    "        message: msgStr,"
+                    "        httpStatus: resp.status,"
+                    "        data: data"
+                    "      };"
+                    "    } catch(e) {"
+                    "      return { error: 'Response is not JSON: ' + text.substring(0, 200), httpStatus: resp.status, success: false };"
+                    "    }"
+                    "  } catch(e) {"
+                    "    return { error: e.message, success: false, httpStatus: 0 };"
+                    "  }"
+                    "}"
+                )
+                checkin_result = page.evaluate(checkin_js)
 
                 print(f'[CF 绕过] 磾到结果: {checkin_result.get("message", checkin_result.get("error", "unknown"))}')
 

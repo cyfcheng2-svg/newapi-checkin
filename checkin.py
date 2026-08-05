@@ -57,18 +57,20 @@ class NewAPICheckin:
         """
         return '****'
 
-    def __init__(self, base_url: str, session_cookie: str, user_id: str = None, cf_clearance: str = None, auth_type: str = 'session'):
+    def __init__(self, base_url: str, session_cookie: str, user_id: str = None, cf_clearance: str = None, auth_type: str = 'session', checkin_path: str = '/api/user/checkin'):
         self.base_url = base_url.rstrip('/')
         self.session_cookie = session_cookie
         self.original_cf_clearance = cf_clearance
         self.cf_bypassed = False
-        self.auth_type = auth_type  # 'session' (cookie) 或 'bearer' (Authorization 头)
+        self.auth_type = auth_type  # 'session'/'auth_token' (cookie) 或 'bearer' (Authorization 头)
+        self.checkin_path = checkin_path or '/api/user/checkin'
+        self.cookie_name = 'session' if auth_type == 'session' else 'auth_token' if auth_type == 'auth_token' else None
         self.session = requests.Session()
 
         if self.auth_type == 'bearer':
             self.session.headers.update({'Authorization': 'Bearer ' + session_cookie})
-        else:
-            self.session.cookies.set('session', session_cookie)
+        elif self.cookie_name:
+            self.session.cookies.set(self.cookie_name, session_cookie)
 
         if cf_clearance:
             self.session.cookies.set('cf_clearance', cf_clearance)
@@ -87,7 +89,7 @@ class NewAPICheckin:
                 'new-api-user': str(user_id),
                 'Api-User': str(user_id),  # 某些站点用 Api-User 头
             })
-        elif self.auth_type != 'bearer':
+        elif self.auth_type != 'bearer' and self.auth_type != 'auth_token':
             self.user_id = self._extract_user_id_from_session(session_cookie)
             if self.user_id:
                 self.session.headers.update({
@@ -223,7 +225,7 @@ class NewAPICheckin:
         }
 
         try:
-            resp = self.session.post(f'{self.base_url}/api/user/checkin', timeout=30)
+            resp = self.session.post(f'{self.base_url}{self.checkin_path}', timeout=30)
 
             if resp.status_code == 401:
                 result['message'] = '认证失败: Session 可能已过期，请重新获取'
@@ -258,7 +260,11 @@ class NewAPICheckin:
                 else:
                     result['message'] = data.get('message', '签到失败')
             else:
-                result['message'] = f'HTTP {resp.status_code}: {data.get("message", "未知错误")}'
+                msg = data.get("message", "未知错误")
+                # "今天已经签到过了" 等也视为成功
+                if '已签到' in msg or 'already' in msg.lower():
+                    result['success'] = True
+                result['message'] = f'HTTP {resp.status_code}: {msg}'
 
         except requests.exceptions.Timeout:
             result['message'] = '请求超时'
@@ -287,7 +293,7 @@ class NewAPICheckin:
             result['message'] = 'Cloudflare 拦截: 需安装 Playwright 才能自动绕过 (pip install playwright && playwright install chromium)'
             return result
 
-        bypasser = CloudflareBypasser(self.base_url, self.session_cookie, self.user_id)
+        bypasser = CloudflareBypasser(self.base_url, self.session_cookie, self.user_id, self.cookie_name, self.checkin_path)
 
         if not bypasser.is_available():
             result['message'] = 'Cloudflare 拦截: Playwright 未正确安装'
@@ -382,6 +388,8 @@ def parse_accounts(accounts_str: str) -> list:
                     # 如果提供了 auth_type，添加到账号信息中
                     if 'auth_type' in item:
                         account['auth_type'] = item['auth_type']
+                    if 'checkin_path' in item:
+                        account['checkin_path'] = item['checkin_path']
                     accounts.append(account)
             return accounts
     except json.JSONDecodeError:
@@ -581,6 +589,7 @@ def main():
         user_id = account.get('user_id')  # 获取用户ID（如果提供）
         cf_clearance = account.get('cf_clearance')  # 获取 CF clearance（如果提供）
         auth_type = account.get('auth_type', 'session')  # 认证方式
+        checkin_path = account.get('checkin_path')  # 签到路径（如果提供）
         name = account.get('name') or f'账号{i}'
 
         print(f'[{i}/{len(accounts)}] {name}')
@@ -589,7 +598,7 @@ def main():
         if user_id:
             print(f'  用户ID: {NewAPICheckin._mask_user_id(user_id)}')
 
-        client = NewAPICheckin(url, session_cookie, user_id, cf_clearance, auth_type)
+        client = NewAPICheckin(url, session_cookie, user_id, cf_clearance, auth_type, checkin_path)
 
         # 获取用户信息
         user_info = client.get_user_info()
