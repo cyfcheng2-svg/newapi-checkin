@@ -1,11 +1,38 @@
-name: Test Probe
-on: workflow_dispatch
+name: NewAPI 自动签到
+
+on:
+  # 定时执行：每天 UTC 16:08 (北京时间 0:08)
+  # (touch: force re-parse workflow by GitHub Actions)
+  schedule:
+    - cron: '8 16 * * *'
+  # 手动触发
+  workflow_dispatch:
+
 jobs:
-  probe:
+  checkin:
     runs-on: ubuntu-latest
+
     steps:
-      - name: hello
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 设置 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 安装 Playwright 浏览器
+        run: playwright install chromium --with-deps
+
+      - name: 执行签到
         env:
           CONFIG_URL: ${{ secrets.CONFIG_URL }}
           CONFIG_AUTH: ${{ secrets.CONFIG_AUTH }}
-        run: echo ok
+          NEWAPI_ACCOUNTS: ${{ secrets.NEWAPI_ACCOUNTS }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
+        run: python checkin.py
