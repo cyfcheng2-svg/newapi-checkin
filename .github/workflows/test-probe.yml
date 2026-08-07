@@ -4,9 +4,8 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: 设置 Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
       - name: hello
+        env:
+          CONFIG_URL: ${{ secrets.CONFIG_URL }}
+          CONFIG_AUTH: ${{ secrets.CONFIG_AUTH }}
         run: echo ok
