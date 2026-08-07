@@ -9,5 +9,16 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
-      - name: hello
-        run: echo ok
+      - name: 设置 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: 执行签到
+        env:
+          CONFIG_URL: ${{ secrets.CONFIG_URL }}
+          CONFIG_AUTH: ${{ secrets.CONFIG_AUTH }}
+          NEWAPI_ACCOUNTS: ${{ secrets.NEWAPI_ACCOUNTS }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
+        run: echo probe-checkin
