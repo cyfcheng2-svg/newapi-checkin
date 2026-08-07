@@ -6,8 +6,5 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
-      - name: 执行签到
-        env:
-          CONFIG_URL: ${{ secrets.CONFIG_URL }}
-          NEWAPI_ACCOUNTS: ${{ secrets.NEWAPI_ACCOUNTS }}
-        run: python checkin.py
+      - name: hello
+        run: echo ok
