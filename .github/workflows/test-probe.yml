@@ -4,7 +4,11 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: 安装 Playwright 浏览器
-        run: playwright install chromium --with-deps
+      - name: 检出代码
+        uses: actions/checkout@v5
+      - name: 设置 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
       - name: hello
         run: echo ok
