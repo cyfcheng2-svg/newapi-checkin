@@ -2,6 +2,7 @@ name: NewAPI 自动签到
 
 on:
   # 定时执行：每天 UTC 16:08 (北京时间 0:08)
+  # (touch: force re-parse workflow by GitHub Actions)
   schedule:
     - cron: '8 16 * * *'
   # 手动触发
