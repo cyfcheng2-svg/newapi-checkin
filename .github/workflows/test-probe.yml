@@ -6,9 +6,12 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
-      - name: 设置 Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-      - name: hello
-        run: echo ok
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+      - name: 安装 Playwright 浏览器
+        run: playwright install chromium --with-deps
+      - name: 执行签到
+        env:
+          CONFIG_URL: ${{ secrets.CONFIG_URL }}
+          NEWAPI_ACCOUNTS: ${{ secrets.NEWAPI_ACCOUNTS }}
+        run: python checkin.py
