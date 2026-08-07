@@ -7,4 +7,4 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v5
       - name: hello
-        run: echo ok
+        run: python checkin.py
