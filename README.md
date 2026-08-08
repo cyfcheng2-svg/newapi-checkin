@@ -129,6 +129,13 @@ https://你的用户名.github.io/Newapi-checkin/config_generator.html
 
 添加名为 `NEWAPI_ACCOUNTS` 的 Secret。
 
+> ⚠️ **重要：Secret 值必须是「单行、无换行、UTF-8 编码」的 JSON。**
+> - 值里若包含换行、回车或非 UTF-8 编码（如 Windows 下 GBK）的中文，会导致：
+>   1. GitHub Actions 触发时出现 **startup_failure**（workflow 无法启动）
+>   2. 飞书通知里的中文账号名乱码
+> - 粘贴前请确认 JSON 是**一行**（不要保留换行缩进），中文字段的编码为 UTF-8。
+> - 用命令行设置时，推荐 `cat file.json | gh secret set NEWAPI_ACCOUNTS --repo <仓库>`（经 stdin 传入，避免编码/换行问题）。
+
 > 💡 **推荐使用配置工具生成配置**（见上方"配置工具"章节），也可以按以下格式手动配置：
 
 **单账号格式：**
@@ -571,6 +578,19 @@ NewAPI 自动签到
 2. 自动提取用户ID
 3. 将 `new-api-user: 用户ID` 添加到后续请求的请求头中
 4. 无需手动配置，完全自动化
+
+### Q8: workflow 显示 startup_failure 无法运行，或通知里账号名乱码？
+
+**原因：** `NEWAPI_ACCOUNTS` Secret 的值不是「单行、无换行、UTF-8」的 JSON。
+
+**解决：**
+1. 重新编辑 Secret，确保值里**没有换行**（多账号 JSON 应压成一行）
+2. 中文字段（账号名）必须是 **UTF-8** 编码，不要在 Windows 记事本/某些工具里被转成 GBK
+3. 命令行设置时用 stdin 注入最稳妥：
+   ```bash
+   cat config.json | gh secret set NEWAPI_ACCOUNTS --repo 你的用户名/newapi-checkin
+   ```
+   （生成 JSON 时建议用 Python 直接写文件，避免 Windows 终端把 stdout 按 GBK 编码写坏中文字符）
 
 ---
 

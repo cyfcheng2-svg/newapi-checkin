@@ -64,10 +64,14 @@ class NewAPICheckin:
         self.cf_bypassed = False
         self.auth_type = auth_type  # 'session'/'auth_token' (cookie) 或 'bearer' (Authorization 头)
         self.checkin_path = checkin_path or '/api/user/checkin'
-        self.cookie_name = 'session' if auth_type == 'session' else 'auth_token' if auth_type == 'auth_token' else None
+        self.cookie_name = 'session' if auth_type in ('session', 'session_bearer') else 'auth_token' if auth_type == 'auth_token' else None
         self.session = requests.Session()
 
         if self.auth_type == 'bearer':
+            self.session.headers.update({'Authorization': 'Bearer ' + session_cookie})
+        elif self.auth_type == 'session_bearer':
+            # 组合认证：同值同时用作 session cookie 与 Authorization: Bearer（如 taicu-link 类自定义 new-api 站的三要素认证）
+            self.session.cookies.set('session', session_cookie)
             self.session.headers.update({'Authorization': 'Bearer ' + session_cookie})
         elif self.cookie_name:
             self.session.cookies.set(self.cookie_name, session_cookie)
@@ -293,7 +297,7 @@ class NewAPICheckin:
             result['message'] = 'Cloudflare 拦截: 需安装 Playwright 才能自动绕过 (pip install playwright && playwright install chromium)'
             return result
 
-        bypasser = CloudflareBypasser(self.base_url, self.session_cookie, self.user_id, self.cookie_name, self.checkin_path)
+        bypasser = CloudflareBypasser(self.base_url, self.session_cookie, self.user_id, self.cookie_name, self.checkin_path, self.auth_type)
 
         if not bypasser.is_available():
             result['message'] = 'Cloudflare 拦截: Playwright 未正确安装'

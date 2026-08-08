@@ -55,12 +55,13 @@ class CloudflareBypasser:
     (对应 Chrome 扩展在同一标签页中完成所有操作)
     """
 
-    def __init__(self, base_url: str, session_cookie: str = None, user_id: str = None, cookie_name: str = 'session', checkin_path: str = '/api/user/checkin'):
+    def __init__(self, base_url: str, session_cookie: str = None, user_id: str = None, cookie_name: str = 'session', checkin_path: str = '/api/user/checkin', auth_type: str = 'session'):
         self.base_url = base_url.rstrip('/')
         self.session_cookie = session_cookie
         self.user_id = user_id
         self.cookie_name = cookie_name
         self.checkin_path = checkin_path or '/api/user/checkin'
+        self.auth_type = auth_type
         self._playwright_available = self._check_playwright()
 
     def _check_playwright(self) -> bool:
@@ -191,6 +192,8 @@ class CloudflareBypasser:
                 user_headers = ""
                 if self.user_id:
                     user_headers = ", 'Api-User': '" + str(self.user_id) + "', 'new-api-user': '" + str(self.user_id) + "', 'New-Api-User': '" + str(self.user_id) + "'"
+                if self.auth_type in ('bearer', 'session_bearer') and self.session_cookie:
+                    user_headers += ", 'Authorization': 'Bearer " + self.session_cookie + "'"
 
                 checkin_js = (
                     "async () => {"
