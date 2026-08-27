@@ -26,6 +26,11 @@ try:
 except ImportError:
     send_checkin_notification = None
 
+try:
+    import turnstile_solver
+except ImportError:
+    turnstile_solver = None
+
 
 class NewAPICheckin:
     """NewAPI 签到类"""
@@ -335,12 +340,22 @@ class NewAPICheckin:
                     result['quota_awarded'] = checkin_data.get('quota_awarded')
                 else:
                     result['message'] = data.get('message', '签到失败')
+                    # 站点要求 Turnstile（如 TaiCu）→ Camoufox 求解 token 后重试一次
+                    if turnstile_solver and ('turnstile' in result['message'].lower()):
+                        retry = self._turnstile_checkin()
+                        if retry:
+                            result = retry
             else:
                 msg = data.get("message", "未知错误")
                 # "今天已经签到过了" 等也视为成功
                 if '已签到' in msg or 'already' in msg.lower():
                     result['success'] = True
                 result['message'] = f'HTTP {resp.status_code}: {msg}'
+                # 部分 fork 对缺 Turnstile 返回非 200（如 400/421）
+                if turnstile_solver and 'turnstile' in msg.lower():
+                    retry = self._turnstile_checkin()
+                    if retry:
+                        result = retry
 
         except requests.exceptions.Timeout:
             result['message'] = '请求超时'
@@ -349,6 +364,36 @@ class NewAPICheckin:
         except Exception as e:
             result['message'] = f'未知错误: {e}'
 
+        return result
+
+    def _turnstile_checkin(self):
+        """Turnstile 签到：/api/status 取 sitekey → Camoufox 求 token → 带 token 重试。
+
+        成功返回新结果字典；不适用/失败返回 None（保留原错误信息）。
+        """
+        print('[Turnstile] 站点要求 Turnstile，开始求解...')
+        sitekey = turnstile_solver.fetch_sitekey(self.base_url)
+        if not sitekey:
+            print('[Turnstile] 站点未暴露 sitekey（可能已关闭 Turnstile），跳过')
+            return None
+        token = turnstile_solver.solve(self.base_url, sitekey)
+        if not token:
+            return None
+        url = f'{self.base_url}{self.checkin_path}?turnstile={token}'
+        try:
+            resp = self.session.post(url, timeout=30)
+            data = resp.json()
+        except Exception as e:
+            print(f'[Turnstile] 提交失败: {e}')
+            return None
+        result = {'success': False, 'message': data.get('message', '签到失败'),
+                  'checkin_date': None, 'quota_awarded': None}
+        if resp.status_code == 200 and data.get('success'):
+            result['success'] = True
+            checkin_data = data.get('data', {})
+            result['checkin_date'] = checkin_data.get('checkin_date')
+            result['quota_awarded'] = checkin_data.get('quota_awarded')
+        print(f"[Turnstile] 重试结果: {'✅ ' + result['message'] if result['success'] else result['message']}")
         return result
 
     def _cf_bypass_checkin(self) -> dict:

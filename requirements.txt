@@ -3,3 +3,6 @@ requests>=2.28.0
 pytz>=2023.3
 
 playwright>=1.40.0
+
+# Turnstile 求解（Camoufox 无头浏览器，站点开启 Turnstile 时自动启用）
+camoufox[geoip]>=0.4.11

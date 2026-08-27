@@ -186,6 +186,8 @@ https://api.example1.com#MTc2NzQx...,https://api.example2.com#QVFMXzJh...,https:
 | `login_username` | string | 网页登录用户名（可选，用于 session 过期自动续期） | 空 |
 | `login_password` | string | 网页登录密码（可选，用于 session 过期自动续期） | 空 |
 
+**Turnstile 自动求解（零配置）：** 站点签到接口要求 Cloudflare Turnstile（如报 "Turnstile token 为空"）时，脚本自动从 `/api/status` 读取 sitekey，用 Camoufox 无头浏览器求解 token 后重试，无需任何配置。求解器未安装/失败时回退原流程（该站报错，不影响其它站点）。
+
 **示例：Bearer 认证站点：**
 ```json
 {
