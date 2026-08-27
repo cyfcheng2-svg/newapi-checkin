@@ -57,7 +57,7 @@ class NewAPICheckin:
         """
         return '****'
 
-    def __init__(self, base_url: str, session_cookie: str, user_id: str = None, cf_clearance: str = None, auth_type: str = 'session', checkin_path: str = '/api/user/checkin'):
+    def __init__(self, base_url: str, session_cookie: str, user_id: str = None, cf_clearance: str = None, auth_type: str = 'session', checkin_path: str = '/api/user/checkin', login_username: str = None, login_password: str = None):
         self.base_url = base_url.rstrip('/')
         self.session_cookie = session_cookie
         self.original_cf_clearance = cf_clearance
@@ -66,18 +66,29 @@ class NewAPICheckin:
         self.checkin_path = checkin_path or '/api/user/checkin'
         self.cookie_name = 'session' if auth_type in ('session', 'session_bearer') else 'auth_token' if auth_type == 'auth_token' else None
         self.session = requests.Session()
+        self.login_username = login_username
+        self.login_password = login_password
 
+        if user_id:
+            self.user_id = user_id
+        elif self.auth_type != 'bearer' and self.auth_type != 'auth_token':
+            self.user_id = self._extract_user_id_from_session(session_cookie)
+
+        self._setup_session()
+
+    def _setup_session(self):
+        """按 auth_type 应用 cookie / Bearer 认证与请求头。session 续期后需重新调用。"""
         if self.auth_type == 'bearer':
-            self.session.headers.update({'Authorization': 'Bearer ' + session_cookie})
+            self.session.headers.update({'Authorization': 'Bearer ' + self.session_cookie})
         elif self.auth_type == 'session_bearer':
             # 组合认证：同值同时用作 session cookie 与 Authorization: Bearer（如 taicu-link 类自定义 new-api 站的三要素认证）
-            self.session.cookies.set('session', session_cookie)
-            self.session.headers.update({'Authorization': 'Bearer ' + session_cookie})
+            self.session.cookies.set('session', self.session_cookie)
+            self.session.headers.update({'Authorization': 'Bearer ' + self.session_cookie})
         elif self.cookie_name:
-            self.session.cookies.set(self.cookie_name, session_cookie)
+            self.session.cookies.set(self.cookie_name, self.session_cookie)
 
-        if cf_clearance:
-            self.session.cookies.set('cf_clearance', cf_clearance)
+        if self.original_cf_clearance:
+            self.session.cookies.set('cf_clearance', self.original_cf_clearance)
 
         self.session.headers.update({
             'Accept': 'application/json, text/plain, */*',
@@ -87,19 +98,65 @@ class NewAPICheckin:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         })
 
-        if user_id:
-            self.user_id = user_id
+        if self.user_id:
             self.session.headers.update({
-                'new-api-user': str(user_id),
-                'Api-User': str(user_id),  # 某些站点用 Api-User 头
+                'new-api-user': str(self.user_id),
+                'Api-User': str(self.user_id),  # 某些站点用 Api-User 头
             })
-        elif self.auth_type != 'bearer' and self.auth_type != 'auth_token':
-            self.user_id = self._extract_user_id_from_session(session_cookie)
-            if self.user_id:
-                self.session.headers.update({
-                    'new-api-user': str(self.user_id),
-                    'Api-User': str(self.user_id),
-                })
+
+    def _try_login(self, verbose: bool = False) -> bool:
+        """
+        Session 过期时用账号密码重新登录，刷新会话并续期。
+
+        成功后更新 self.session_cookie（bearer/session_bearer）与 requests.Session 的 cookie/头。
+        """
+        if not self.login_username or not self.login_password:
+            return False
+
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': self.session.headers.get('User-Agent', ''),
+        }
+        try:
+            resp = self.session.post(
+                f'{self.base_url}/api/user/login',
+                json={'username': self.login_username, 'password': self.login_password},
+                headers=headers,
+                timeout=30,
+            )
+        except requests.exceptions.RequestException as e:
+            if verbose:
+                print(f'[登录] 登录请求失败: {e}')
+            return False
+
+        if resp.status_code != 200:
+            if verbose:
+                print(f'[登录] 登录失败 (HTTP {resp.status_code})')
+                print(f'  [调试] 响应: {resp.text[:200]}')
+            return False
+
+        try:
+            data = resp.json()
+        except json.JSONDecodeError:
+            if verbose:
+                print('[登录] 登录响应非 JSON，视作失败')
+            return False
+
+        # 登录成功：session 型由 Set-Cookie 自动写入；bearer/session_bearer 尝试从响应取 access_token
+        new_token = (data.get('data') or {}).get('access_token') or data.get('access_token')
+        if new_token:
+            self.session_cookie = new_token
+        if self.session_cookie and self.auth_type in ('bearer', 'session_bearer'):
+            self._setup_session()
+
+        # 续期后刷新 user_id（部分站点登录返回当前用户）
+        login_user = (data.get('data') or {}).get('id') or (data.get('data') or {}).get('user_id')
+        if login_user and not self.user_id:
+            self.user_id = str(login_user)
+
+        if verbose:
+            print(f'[登录] Session 已自动续期 ({self._mask_url(self.base_url)})')
+        return True
 
     def _extract_user_id_from_session(self, session_cookie: str) -> Optional[str]:
         """
@@ -153,9 +210,17 @@ class NewAPICheckin:
 
             # 检查认证失败
             if resp.status_code == 401:
-                print(f'[错误] 认证失败 (401): Session 可能已过期')
+                if self._try_login(verbose):
+                    print(f'[登录] 已自动续期，重试获取用户信息...')
+                    resp = self.session.get(f'{self.base_url}/api/user/self', timeout=30)
+                else:
+                    print(f'[错误] 认证失败 (401): Session 可能已过期')
+                    if verbose:
+                        print(f'  [调试] 完整响应: {resp.text[:500]}')
+                    return None
+            if resp.status_code == 401:
                 if verbose:
-                    print(f'  [调试] 完整响应: {resp.text[:500]}')
+                    print(f'  [调试] 续期后仍 401: {resp.text[:200]}')
                 return None
 
             # 尝试解析 JSON
@@ -232,7 +297,14 @@ class NewAPICheckin:
             resp = self.session.post(f'{self.base_url}{self.checkin_path}', timeout=30)
 
             if resp.status_code == 401:
-                result['message'] = '认证失败: Session 可能已过期，请重新获取'
+                if self._try_login(verbose=True):
+                    print(f'[登录] 已自动续期，重试签到...')
+                    resp = self.session.post(f'{self.base_url}{self.checkin_path}', timeout=30)
+                else:
+                    result['message'] = '认证失败: Session 可能已过期，请重新获取'
+                    return result
+            if resp.status_code == 401:
+                result['message'] = '认证失败: 自动续期后仍 401'
                 return result
 
             try:
@@ -394,6 +466,11 @@ def parse_accounts(accounts_str: str) -> list:
                         account['auth_type'] = item['auth_type']
                     if 'checkin_path' in item:
                         account['checkin_path'] = item['checkin_path']
+                    # 可选：登录凭据（用于 session 过期自动续期）
+                    if 'login_username' in item:
+                        account['login_username'] = item['login_username']
+                    if 'login_password' in item:
+                        account['login_password'] = item['login_password']
                     accounts.append(account)
             return accounts
     except json.JSONDecodeError:
@@ -594,6 +671,8 @@ def main():
         cf_clearance = account.get('cf_clearance')  # 获取 CF clearance（如果提供）
         auth_type = account.get('auth_type', 'session')  # 认证方式
         checkin_path = account.get('checkin_path')  # 签到路径（如果提供）
+        login_username = account.get('login_username')  # 可选：登录凭据（自动续期用）
+        login_password = account.get('login_password')
         name = account.get('name') or f'账号{i}'
 
         print(f'[{i}/{len(accounts)}] {name}')
@@ -602,7 +681,7 @@ def main():
         if user_id:
             print(f'  用户ID: {NewAPICheckin._mask_user_id(user_id)}')
 
-        client = NewAPICheckin(url, session_cookie, user_id, cf_clearance, auth_type, checkin_path)
+        client = NewAPICheckin(url, session_cookie, user_id, cf_clearance, auth_type, checkin_path, login_username, login_password)
 
         # 获取用户信息
         user_info = client.get_user_info()

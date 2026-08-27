@@ -12,6 +12,7 @@
 - ✅ 错误处理和超时控制
 - ✅ 支持手动触发和定时任务
 - ✅ **飞书通知**（签到完成后自动推送结果到飞书会话）
+- ✅ **Session 自动续期**（配置可选账号密码后，session 过期(401)时自动重新登录，零维护）
 - ✅ **工作流保活**（防止 GitHub Actions 自动禁用）
 
 ## 🛠️ 配置工具（推荐）
@@ -182,6 +183,8 @@ https://api.example1.com#MTc2NzQx...,https://api.example2.com#QVFMXzJh...,https:
 | `auth_type` | string | 认证方式：`session`（cookie）/ `bearer`（Authorization 头）/ `auth_token`（auth_token cookie） | `session` |
 | `checkin_path` | string | 签到接口路径（如站点签到接口不同） | `/api/user/checkin` |
 | `cf_clearance` | string | Cloudflare cf_clearance cookie（Playwright 自动绕过通常不需要） | 空 |
+| `login_username` | string | 网页登录用户名（可选，用于 session 过期自动续期） | 空 |
+| `login_password` | string | 网页登录密码（可选，用于 session 过期自动续期） | 空 |
 
 **示例：Bearer 认证站点：**
 ```json
