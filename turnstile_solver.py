@@ -13,9 +13,13 @@ Cloudflare Turnstile 求解器（Camoufox 无头浏览器）
 
 依赖：pip install "camoufox[geoip]" && python -m camoufox fetch
 未安装时 solve() 返回 None，签到回退到原有直连流程。
+
+安全兜底：solve() 全程跑在 daemon 线程 + 硬超时。Camoufox 在 CI runner 上可能因
+首次下载/无头启动异常而阻塞，超时即放弃该站返回 None，绝不拖死整个签到流程。
 """
 
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -36,6 +40,9 @@ _BOX_JS = """() => { const h = document.getElementById('ck-ts-host');
     if (!h) return null; const r = h.getBoundingClientRect();
     return {x: r.x, y: r.y, w: r.width, h: r.height}; }"""
 
+# 求解整体硬超时：覆盖浏览器启动 + 轮询 token。超时返回 None。
+_SOLVE_TIMEOUT_S = 120
+
 
 def fetch_sitekey(base_url):
     """从 GET /api/status 读 turnstile_check + turnstile_site_key。不开 Turnstile 返回 None。"""
@@ -51,8 +58,26 @@ def fetch_sitekey(base_url):
     return None
 
 
-def solve(base_url, sitekey, timeout_s=90):
-    """启动 Camoufox 无头求解 Turnstile token。失败返回 None。"""
+def solve(base_url, sitekey, timeout_s=_SOLVE_TIMEOUT_S):
+    """启动 Camoufox 无头求解 Turnstile token（daemon 线程 + 硬超时）。
+
+    返回 token 字符串；超时 / 未安装 / 失败返回 None（调用方回退原流程）。
+    """
+    holder = {}
+
+    def worker():
+        holder['token'] = _solve_inner(base_url, sitekey)
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+    t.join(timeout_s)
+    if t.is_alive():
+        print(f'[Turnstile] 求解超时（>{timeout_s}s），放弃求解该站')
+        return None
+    return holder.get('token')
+
+
+def _solve_inner(base_url, sitekey):
     try:
         from camoufox.sync_api import Camoufox
     except ImportError:
@@ -63,7 +88,7 @@ def solve(base_url, sitekey, timeout_s=90):
     origin = base_url.rstrip('/')
     t0 = time.time()
     try:
-        with Camoufox(headless=True, humanize=0.6, geoip=True) as browser:
+        with Camoufox(headless=True, humanize=0.6) as browser:
             page = browser.new_page()
 
             def route(r):
@@ -76,7 +101,7 @@ def solve(base_url, sitekey, timeout_s=90):
             page.goto(origin + '/ts', wait_until='domcontentloaded')
             page.add_script_tag(content=_BOOTSTRAP_TPL.replace('__SITEKEY__', sitekey))
             clicked = False
-            while time.time() - t0 < timeout_s:
+            while True:
                 time.sleep(2)
                 st = page.evaluate(_STATE_JS) or {}
                 if st.get('token'):
@@ -85,7 +110,7 @@ def solve(base_url, sitekey, timeout_s=90):
                 if 'error' in (st.get('state') or '') or st.get('err'):
                     print(f"[Turnstile] 求解失败: state={st.get('state')} err={st.get('err')}")
                     return None
-                # 14s 起点击一次复选框（interactive 模式需要；managed 自动签发无需）
+                # ~14s 起点击一次复选框（interactive 模式需要；managed 自动签发无需）
                 if not clicked and time.time() - t0 >= 14:
                     box = page.evaluate(_BOX_JS)
                     if box and box['w'] > 50:

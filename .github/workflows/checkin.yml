@@ -11,6 +11,9 @@ on:
 jobs:
   checkin:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: 1
 
     steps:
       - name: 检出代码
