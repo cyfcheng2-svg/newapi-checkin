@@ -88,8 +88,10 @@ def _solve_inner(base_url, sitekey):
     origin = base_url.rstrip('/')
     t0 = time.time()
     try:
+        print('[Turnstile] 启动 Camoufox...', flush=True)
         with Camoufox(headless=True, humanize=0.6) as browser:
             page = browser.new_page()
+            print('[Turnstile] browser/camoufox OK, 挂路由...', flush=True)
 
             def route(r):
                 # 站点全部请求回空白页（不下载 SPA），仅放行 CF challenges 域
@@ -98,8 +100,11 @@ def _solve_inner(base_url, sitekey):
                 return r.fulfill(status=200, content_type='text/html; charset=utf-8', body=blank)
 
             page.route('**/*', route)
+            print('[Turnstile] goto 承载页...', flush=True)
             page.goto(origin + '/ts', wait_until='domcontentloaded')
+            print('[Turnstile] 注入 widget 引导脚本...', flush=True)
             page.add_script_tag(content=_BOOTSTRAP_TPL.replace('__SITEKEY__', sitekey))
+            print('[Turnstile] 开始轮询 token...', flush=True)
             clicked = False
             while True:
                 time.sleep(2)
