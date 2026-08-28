@@ -30,10 +30,11 @@ jobs:
       - name: 安装 Playwright 浏览器
         run: playwright install chromium --with-deps
 
-      - name: 安装 Camoufox（Turnstile 求解用）
+      - name: 安装 Camoufox + Xvfb（Turnstile 求解用，有头需 Xvfb）
         run: |
           pip install "camoufox[geoip]"
           python -m camoufox fetch
+          sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: 执行签到
         env:
@@ -43,4 +44,5 @@ jobs:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
-        run: python checkin.py
+          CHECKIN_HEADLESS: 'false'
+        run: xvfb-run -a python checkin.py

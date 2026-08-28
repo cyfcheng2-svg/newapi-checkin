@@ -18,6 +18,7 @@ Cloudflare Turnstile 求解器（Camoufox 无头浏览器）
 首次下载/无头启动异常而阻塞，超时即放弃该站返回 None，绝不拖死整个签到流程。
 """
 
+import os
 import re
 import threading
 import time
@@ -89,7 +90,9 @@ def _solve_inner(base_url, sitekey):
     t0 = time.time()
     try:
         print('[Turnstile] 启动 Camoufox...', flush=True)
-        with Camoufox(headless=True, humanize=0.6) as browser:
+        # 无头模式在 CI runner 上易被 CF 600010 风控识别；CI 用 CHECKIN_HEADLESS=false + Xvfb 有头跑
+        headless = os.environ.get('CHECKIN_HEADLESS', 'true').lower() != 'false'
+        with Camoufox(headless=headless, humanize=0.6) as browser:
             page = browser.new_page()
             print('[Turnstile] browser/camoufox OK, 挂路由...', flush=True)
 
