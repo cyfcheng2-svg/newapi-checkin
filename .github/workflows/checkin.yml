@@ -44,5 +44,10 @@ jobs:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
+          QD_USERNAME: ${{ secrets.QD_USERNAME }}
+          QD_PASSWORD: ${{ secrets.QD_PASSWORD }}
+          QD_CODE: ${{ secrets.QD_CODE }}
+          QD_URL: ${{ secrets.QD_URL }}
+          QD_USER_ID: ${{ secrets.QD_USER_ID }}
           CHECKIN_HEADLESS: 'false'
         run: xvfb-run -a python checkin.py

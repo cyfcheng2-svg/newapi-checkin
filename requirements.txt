@@ -6,3 +6,6 @@ playwright>=1.40.0
 
 # Turnstile 求解（Camoufox 无头浏览器，站点开启 Turnstile 时自动启用）
 camoufox[geoip]>=0.4.11
+
+# QD 独立签到站图片验证码 OCR 识别
+ddddocr>=1.6.1
