@@ -826,7 +826,7 @@ def main():
             if qd_result.get('quota_awarded'):
                 print(f'  奖励: +{qd_result["quota_awarded"]} 额度')
             checkin_results.append({
-                'name': 'QD签到',
+                'name': 'ArityFlow',
                 'success': True,
                 'message': qd_result['message'],
                 'quota_awarded': qd_result.get('quota_awarded'),
@@ -835,7 +835,7 @@ def main():
             fail_count += 1
             print(f'[QD] 结果: [失败] {qd_result["message"]}')
             checkin_results.append({
-                'name': 'QD签到',
+                'name': 'ArityFlow',
                 'success': False,
                 'message': qd_result['message'],
             })
