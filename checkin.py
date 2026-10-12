@@ -347,6 +347,9 @@ class NewAPICheckin:
                     result['quota_awarded'] = checkin_data.get('quota_awarded')
                 else:
                     result['message'] = data.get('message', '签到失败')
+                    # 部分站"今日已签过"走 200+success:false（如 LinkAPI: Already checked in today）→ 视为成功
+                    if '已签到' in result['message'] or 'already' in result['message'].lower():
+                        result['success'] = True
                     # 站点要求 Turnstile（如 TaiCu）→ Camoufox 求解 token 后重试一次
                     if turnstile_solver and ('turnstile' in result['message'].lower()):
                         retry = self._turnstile_checkin()
