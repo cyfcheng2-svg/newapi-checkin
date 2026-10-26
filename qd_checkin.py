@@ -164,31 +164,40 @@ class QDCheckin:
         if not status.get('enabled'):
             return {'success': False, 'message': 'QD 签到功能未开启'}
 
-        # 取验证码识别
-        captcha = self._get_captcha()
-        if not captcha:
-            return {'success': False, 'message': 'QD 验证码识别失败（多次重试）'}
+        # 验证码识别与提交循环（最多 4 次，应对偶发 OCR 误识）
+        last_detail = ''
+        for attempt in range(1, 5):
+            captcha = self._get_captcha()
+            if not captcha:
+                time.sleep(1)
+                continue
 
-        captcha_id, answer = captcha
-        payload = {'code': self.code, 'captcha_id': captcha_id, 'captcha_answer': answer, 'cf_token': ''}
-        try:
-            resp = self._request('POST', '/api/checkin', payload, headers=self._auth_headers())
-        except Exception as e:
-            return {'success': False, 'message': f'QD 签到请求失败: {e}'}
+            captcha_id, answer = captcha
+            payload = {'code': self.code, 'captcha_id': captcha_id, 'captcha_answer': answer, 'cf_token': ''}
+            try:
+                resp = self._request('POST', '/api/checkin', payload, headers=self._auth_headers())
+            except Exception as e:
+                return {'success': False, 'message': f'QD 签到请求失败: {e}'}
 
-        reward = resp.get('reward')
-        detail = resp.get('detail', '')
-        if reward is not None:
-            return {'success': True, 'message': f'签到成功，获得 {reward} 额度',
-                    'quota_awarded': reward, 'checkin_date': resp.get('date')}
-        # 签到码问题
-        if '签到码' in detail or 'code' in str(detail).lower():
-            return {'success': False,
-                    'message': f'QD 签到码已失效或不正确，请更新 QD_CODE（{detail}）'}
-        # 验证码问题
-        if '验证码' in detail:
-            return {'success': False, 'message': f'QD 验证码错误，请重试（{detail}）'}
-        return {'success': False, 'message': f'QD 签到失败: {resp}'}
+            reward = resp.get('reward')
+            detail = resp.get('detail', '')
+            if reward is not None:
+                return {'success': True, 'message': f'签到成功，获得 {reward} 额度',
+                        'quota_awarded': reward, 'checkin_date': resp.get('date')}
+            # 签到码问题：立即返回，无需再耗重试
+            if '签到码' in detail or 'code' in str(detail).lower():
+                return {'success': False,
+                        'message': f'QD 签到码已失效或不正确，请更新 QD_CODE（{detail}）'}
+            # 验证码问题：继续下一轮取新验证码重试
+            if '验证码' in detail:
+                last_detail = detail
+                time.sleep(1)
+                continue
+            # 其他非验证码错误：直接返回
+            return {'success': False, 'message': f'QD 签到失败: {resp}'}
+
+        return {'success': False,
+                'message': f'QD 验证码重试 4 次均失败（{last_detail or "无法获取有效验证码"}）'}
 
 
 def run_qd_checkin() -> dict:
