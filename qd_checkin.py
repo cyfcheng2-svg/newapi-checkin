@@ -18,6 +18,7 @@ QD 每日签到站专用客户端（qd.arityflow.top）
 import os
 import json
 import time
+import base64
 import urllib.request
 import urllib.error
 import ssl
@@ -123,17 +124,28 @@ class QDCheckin:
 
     # ---------- 验证码 ----------
     def _get_captcha(self):
-        """取图片验证码并 OCR 识别。返回 (captcha_id, answer) 或 None。"""
+        """取图片验证码并 OCR 识别。返回 (captcha_id, answer) 或 None。
+
+        兼容站端两种响应格式：
+          image_base64 (当前)  -> 直接 base64 解码成 bytes
+          image_url (旧)       -> urllib 下载
+        """
         if not self._ocr:
             raise RuntimeError('缺少 ddddocr，无法识别验证码（pip install ddddocr）')
         for _ in range(4):
             try:
                 c = self._request('GET', '/api/captcha', headers=self._auth_headers())
                 captcha_id = c.get('captcha_id')
-                img_url = c.get('image_url')
-                if not captcha_id or not img_url:
+                if not captcha_id:
                     continue
-                img = urllib.request.urlopen(img_url, timeout=15, context=self._ssl_ctx).read()
+                b64 = c.get('image_base64')
+                if b64:
+                    img = base64.b64decode(b64.split(',', 1)[-1])
+                else:
+                    img_url = c.get('image_url')
+                    if not img_url:
+                        continue
+                    img = urllib.request.urlopen(img_url, timeout=15, context=self._ssl_ctx).read()
                 ans = self._ocr.classification(img)
                 if ans and len(ans) == c.get('length', 4):
                     return captcha_id, ans.lower()
