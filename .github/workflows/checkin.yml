@@ -50,4 +50,11 @@ jobs:
           QD_URL: ${{ secrets.QD_URL }}
           QD_USER_ID: ${{ secrets.QD_USER_ID }}
           CHECKIN_HEADLESS: 'false'
-        run: xvfb-run -a python checkin.py
+        run: |
+          # 调试探活：确认 runner 能否连通 QD 站（TCP/TLS/HTTP 三层）
+          QD_HOST=$(python -c "import urllib.parse;print(urllib.parse.urlparse('${{ secrets.QD_URL }}').netloc)")
+          echo "QD_HOST=$QD_HOST"
+          echo "--- TCP 443 ---"; timeout 12 bash -c "exec 3<>/dev/tcp/$QD_HOST/443" && echo "TCP OK" || echo "TCP FAIL"
+          echo "--- HTTPS HEAD ---"; curl -ksS --connect-timeout 12 --max-time 20 -I "https://$QD_HOST/" 2>&1 | head -8 || echo "curl FAIL"
+          echo "--- python 登录超时测试 ---"
+          xvfb-run -a python checkin.py
