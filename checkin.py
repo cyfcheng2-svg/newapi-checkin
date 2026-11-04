@@ -26,13 +26,6 @@ try:
 except ImportError:
     send_checkin_notification = None
 
-# 独立 QD 签到站（qd.arityflow.top）——非标准 NewAPI，独立类封装
-try:
-    from qd_checkin import QDCheckin, _load_env
-    QD_AVAILABLE = True
-except ImportError:
-    QD_AVAILABLE = False
-
 try:
     import turnstile_solver
 except ImportError:
@@ -820,34 +813,11 @@ def main():
 
         print()
 
-    # 独立 QD 签到站（qd.arityflow.top）——配置了 QD_* 才跑，作为附加站点
-    if QD_AVAILABLE and (os.environ.get('QD_USERNAME') or _load_env().get('QD_USERNAME')):
-        qd_result = QDCheckin().checkin()
-        if qd_result.get('success'):
-            success_count += 1
-            print(f'[QD] 结果: [成功] {qd_result["message"]}')
-            if qd_result.get('quota_awarded'):
-                print(f'  奖励: +{qd_result["quota_awarded"]} 额度')
-            checkin_results.append({
-                'name': 'ArityFlow',
-                'success': True,
-                'message': qd_result['message'],
-                'quota_awarded': qd_result.get('quota_awarded'),
-            })
-        else:
-            fail_count += 1
-            print(f'[QD] 结果: [失败] {qd_result["message"]}')
-            checkin_results.append({
-                'name': 'ArityFlow',
-                'success': False,
-                'message': qd_result['message'],
-            })
-
     # 汇总
     print('=' * 50)
     print(f'签到完成: 成功 {success_count}, 失败 {fail_count}')
     print('=' * 50)
-    
+
     # 发送飞书通知
     if send_checkin_notification:
         print('正在发送飞书通知...')
